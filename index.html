@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notes Web App</title>
+  <style>
+    /* Reset some default styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      color: #333;
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .note-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 600px;
+      margin: 0 auto 30px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .note-form input,
+    .note-form textarea,
+    .note-form button {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    .note-form button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .note-form button:hover {
+      background-color: #0056b3;
+    }
+
+    .notes-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .note {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      position: relative;
+      word-wrap: break-word;
+    }
+
+    .note img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+
+    .note-buttons {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .note-buttons button {
+      flex: 1;
+      padding: 6px;
+      font-size: 0.9rem;
+      margin-right: 5px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .note-buttons button:last-child {
+      margin-right: 0;
+    }
+
+    .edit-btn {
+      background-color: #ffc107;
+    }
+
+    .delete-btn {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .edit-btn:hover {
+      background-color: #e0a800;
+    }
+
+    .delete-btn:hover {
+      background-color: #c82333;
+    }
+
+    @media (max-width: 600px) {
+      .note-buttons button {
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>📝 My Notes</h1>
+
+<!-- Note Form -->
+<form class="note-form" id="noteForm">
+  <input type="text" id="noteTitle" placeholder="Note title..." required />
+  <textarea id="noteText" rows="4" placeholder="Write your note here..." required></textarea>
+  <input type="file" id="noteImage" accept="image/*" />
+  <button type="submit">Add Note</button>
+</form>
+
+<!-- Notes Container -->
+<div class="notes-container" id="notesContainer"></div>
+
+<script>
+  // Load notes from localStorage on page load
+  document.addEventListener('DOMContentLoaded', loadNotes);
+
+  const noteForm = document.getElementById('noteForm');
+  const noteTitle = document.getElementById('noteTitle');
+  const noteText = document.getElementById('noteText');
+  const noteImage = document.getElementById('noteImage');
+
+  // Handle form submission
+  noteForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const title = noteTitle.value.trim();
+    const text = noteText.value.trim();
+    const imageFile = noteImage.files[0];
+
+    if (!title || !text) return;
+
+    if (imageFile) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const imageUrl = event.target.result;
+        addNote(title, text, imageUrl);
+        saveNotesToLocalStorage();
+        resetForm();
+      };
+      reader.readAsDataURL(imageFile);
+    } else {
+      addNote(title, text);
+      saveNotesToLocalStorage();
+      resetForm();
+    }
+  });
+
+  // Add a new note to the DOM
+  function addNote(title, text, imageUrl = null) {
+    const notesContainer = document.getElementById('notesContainer');
+    const noteDiv = document.createElement('div');
+    noteDiv.classList.add('note');
+    noteDiv.dataset.id = Date.now(); // Simple unique ID using timestamp
+
+    noteDiv.innerHTML = `
+      <h3>${title}</h3>
+      <p>${text}</p>
+      ${imageUrl ? `<img src="${imageUrl}" alt="Note Image">` : ''}
+      <div class="note-buttons">
+        <button class="edit-btn">Edit</button>
+        <button class="delete-btn">Delete</button>
+      </div>
+    `;
+
+    // Attach event listeners for edit and delete buttons
+    noteDiv.querySelector('.edit-btn').addEventListener('click', () => editNote(noteDiv));
+    noteDiv.querySelector('.delete-btn').addEventListener('click', () => deleteNote(noteDiv));
+
+    notesContainer.appendChild(noteDiv);
+  }
+
+  // Delete a note
+  function deleteNote(noteElement) {
+    noteElement.remove();
+    saveNotesToLocalStorage();
+  }
+
+  // Edit a note
+  function editNote(noteElement) {
+    const title = noteElement.querySelector('h3').textContent;
+    const text = noteElement.querySelector('p').textContent;
+    const image = noteElement.querySelector('img') ? noteElement.querySelector('img').src : null;
+
+    // Fill form with existing values
+    noteTitle.value = title;
+    noteText.value = text;
+
+    // Remove current note temporarily
+    noteElement.remove();
+
+    // Scroll to top to allow editing
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Focus on the form input
+    noteTitle.focus();
+
+    // Save edited note back when form is submitted again
+    let submitted = false;
+    noteForm.addEventListener('submit', function handleEditSubmit(e) {
+      if (submitted) return;
+      e.preventDefault();
+      submitted = true;
+
+      const newTitle = noteTitle.value.trim();
+      const newText = noteText.value.trim();
+      const newImageFile = noteImage.files[0];
+
+      if (!newTitle || !newText) return;
+
+      if (newImageFile) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const newImageUrl = event.target.result;
+          updateNoteDOM(noteElement, newTitle, newText, newImageUrl);
+          saveNotesToLocalStorage();
+          resetForm();
+        };
+        reader.readAsDataURL(newImageFile);
+      } else {
+        updateNoteDOM(noteElement, newTitle, newText, image);
+        saveNotesToLocalStorage();
+        resetForm();
+      }
+
+      noteForm.removeEventListener('submit', handleEditSubmit);
+    });
+  }
+
+  // Update the DOM with edited note
+  function updateNoteDOM(noteElement, title, text, imageUrl) {
+    noteElement.innerHTML = `
+      <h3>${title}</h3>
+      <p>${text}</p>
+      ${imageUrl ? `<img src="${imageUrl}" alt="Note Image">` : ''}
+      <div class="note-buttons">
+        <button class="edit-btn">Edit</button>
+        <button class="delete-btn">Delete</button>
+      </div>
+    `;
+
+    // Reattach event listeners
+    noteElement.querySelector('.edit-btn').addEventListener('click', () => editNote(noteElement));
+    noteElement.querySelector('.delete-btn').addEventListener('click', () => deleteNote(noteElement));
+
+    document.getElementById('notesContainer').appendChild(noteElement);
+  }
+
+  // Save all notes to localStorage
+  function saveNotesToLocalStorage() {
+    const notes = [];
+    document.querySelectorAll('.note').forEach(note => {
+      const title = note.querySelector('h3').textContent;
+      const text = note.querySelector('p').textContent;
+      const img = note.querySelector('img') ? note.querySelector('img').src : null;
+
+      notes.push({
+        id: note.dataset.id,
+        title,
+        text,
+        image: img
+      });
+    });
+
+    localStorage.setItem('notes', JSON.stringify(notes));
+  }
+
+  // Load notes from localStorage
+  function loadNotes() {
+    const savedNotes = JSON.parse(localStorage.getItem('notes'));
+    if (savedNotes && savedNotes.length > 0) {
+      savedNotes.forEach(note => {
+        addNote(note.title, note.text, note.image);
+      });
+    }
+  }
+
+  // Reset the form fields
+  function resetForm() {
+    noteTitle.value = '';
+    noteText.value = '';
+    noteImage.value = '';
+  }
+</script>
+
+</body>
+</html>
